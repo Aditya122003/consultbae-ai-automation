@@ -161,7 +161,7 @@ Based on the live database state in MySQL (`consultbae_db`), a total of **53 aud
 | **Source 1** | `source1_naukri_applicants.csv` | **2 Audit Logs** | Abbreviated names, alternate email aliases, +91/0 phone prefixes, CTC unit conversions (LPA), 4 date formats. |
 | **Source 2** | `source2_gig_workers.csv` | **17 Audit Logs** | Empty delimiter rows, column misalignment (row 20), uppercase emails, rate unit splitting (/hr vs k/month), missing phone column. |
 | **Source 3** | `source3_cbnexus_contacts.csv` | **30 Audit Logs** | Embedded duplicate header (row 16), ALL CAPS names, country code phone prefixes, mixed boolean flags (Y/N/Yes), missing email column. |
-| **Source 4** | `source4_candidates.csv` | **4 Audit Logs** | Dynamic batch ingestion anomalies, missing experience/CTC fields, rate normalizations. |
+| **Source 4** | `source4_candidates.csv` *(Candidate Test Dataset)* | **4 Audit Logs** | Custom candidate batch upload containing missing candidate names (rows 10-11), missing phone/email (row 12), placeholder skills (`"--"` row 9), and rate normalizations. |
 | **TOTAL** | **Live Database State** | **53 Audit Logs (186 Issues)** | **65 Unified Candidate Profiles** |
 
 #### 📋 Itemized 6-Column Data Quality Issues Catalog
@@ -195,11 +195,15 @@ Based on the live database state in MySQL (`consultbae_db`), a total of **53 aud
 | **Source 3** | **Boolean Inconsistencies** | Rows 2, 3, 4, 7, 8 | `Y`, `yes`, `Yes`, `No`, `N` | Mixed boolean strings across different operators. | Normalized to boolean `TINYINT(1)`: `1` for affirmative (`Y`, `yes`, `Yes`), `0` for negative (`N`, `No`). |
 | **Source 3** | **Missing Email Column** | All Rows | *(Column absent)* | Source 3 lacked email addresses. | Cross-source entity matcher linked records with Source 1 and Source 2 via 10-digit phone numbers and `Name + City` composite keys. |
 
-##### 4. Source 4: `source4_candidates.csv` (Dynamic Uploads)
+##### 4. Source 4: `source4_candidates.csv` *(Candidate-Provided Custom Test Dataset)*
+
+> **Note**: `source4_candidates.csv` is a custom batch uploaded during evaluation to test dynamic CSV ingestion, non-destructive merging, and dynamic 6-column audit reporting.
+
 | Source | Issue Type | CSV Rows Affected | Raw Example | Root Cause & Impact | Automated Remediation & Solution |
 |---|---|---|---|---|---|
-| **Source 4** | **Missing Experience / CTC** | Rows 2, 4, 5 | `,,` | Dynamic batch candidate uploads lacking experience or current CTC metrics. | Ingestion pipeline provisions default null values (`0.00` experience, `0.00` CTC) and logs audit events. |
-| **Source 4** | **Unassigned Domain Skills** | Rows 3, 6 | `web development, python` | Skills entered without formal skill category assignment. | Pipeline automatically flags unassigned entries for n8n LLM categorization or defaults to `--` unassigned status. |
+| **Source 4** | **Missing Candidate Names** | Rows 10, 11 | `,invalid_candidate1@example.com,9876500110` | Test rows submitted without full candidate names. | Pipeline auto-derived name fallback from email prefix or assigned unassigned worker flags. |
+| **Source 4** | **Missing Contact Phone / Email** | Row 12, 13 | `Suresh Kumar,,,,Python,7.5` vs `,,9876500114` | Test candidate entries missing email or phone contact details. | Ingestion engine applied Pass 3 `Name + City` matching and populated null placeholders without dropping valid candidate details. |
+| **Source 4** | **Placeholder Skill Values** | Row 9 | `Kavya Singh, kavya.singh@example.com, 9876500108, "--"` | Skills submitted as dashes or blank placeholders (`"--"`). | Dynamic cleaner replaced placeholders with `--` (unassigned status) and logged an audit event. |
 
 - **Dynamic UI Audit Table**: Fed reactively by `/api/audit/logs` matching exact enterprise audit schema.
 - **One-Click CSV Export**: Downloads formatted CSV file via `/api/audit/download-csv` generated directly from MySQL state.
