@@ -1,0 +1,219 @@
+<!-- Audio Collection Studio Template -->
+<!-- Enables in-browser microphone recording, audio file drop, preview playback, and instant property extraction -->
+
+<div class="recorder-card glass-panel">
+  <div class="card-header">
+    <div class="header-title">
+      <div class="header-icon">🎙️</div>
+      <div>
+        <div class="task-badge-pill">Task 3.1 Deliverable</div>
+        <h2>Audio Collection Studio</h2>
+        <p class="subtitle">Record live audio in browser or upload an audio file for automated acoustic analysis</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Candidate Autofill Fast Selector -->
+  <div *ngIf="candidateSuggestions.length > 0" class="suggestions-bar">
+    <span class="suggestion-label">⚡ Quick Fill Candidate:</span>
+    <div class="suggestion-chips">
+      <button *ngFor="let c of candidateSuggestions" (click)="selectCandidate(c)" class="chip-btn" type="button">
+        {{ c.full_name }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Worker Input Form with Validation -->
+  <div class="form-grid">
+    <!-- Worker Name -->
+    <div class="form-group">
+      <label for="workerName">
+        Worker Full Name <span class="required">*</span>
+      </label>
+      <input
+        type="text"
+        id="workerName"
+        [(ngModel)]="workerName"
+        (input)="onNameInput()"
+        placeholder="e.g. Tanvi Gupta"
+        class="custom-input"
+        [class.input-invalid]="nameTouched && !isNameValid"
+        [class.input-valid]="isNameValid"
+        required
+      />
+      <span *ngIf="nameTouched && !isNameValid" class="field-error-msg">
+        ⚠️ Name is required (min 2 characters)
+      </span>
+    </div>
+
+    <!-- Worker Phone -->
+    <div class="form-group">
+      <div class="label-row">
+        <label for="workerPhone">
+          Worker Phone Number <span class="required">*</span>
+        </label>
+        <span class="digit-count-badge" [class.count-complete]="isPhoneValid">
+          {{ workerPhone.length }} / 10 digits
+        </span>
+      </div>
+      <input
+        type="tel"
+        id="workerPhone"
+        [(ngModel)]="workerPhone"
+        (input)="onPhoneInput()"
+        maxlength="10"
+        placeholder="e.g. 9000000254 (10 digits)"
+        class="custom-input"
+        [class.input-invalid]="phoneTouched && !isPhoneValid"
+        [class.input-valid]="isPhoneValid"
+        required
+      />
+      <span *ngIf="phoneTouched && !isPhoneValid" class="field-error-msg">
+        ⚠️ Enter a valid 10-digit phone number
+      </span>
+    </div>
+  </div>
+
+  <!-- Dual Mode: Live Microphone Recording & File Drag-and-Drop Zone -->
+  <div class="recording-studio">
+    <!-- Real-time Oscilloscope Canvas Visualizer (Shown while recording) -->
+    <div *ngIf="isRecording" class="canvas-container">
+      <div class="recording-indicator">
+        <span class="rec-dot pulse-active"></span>
+        <span class="rec-status">LIVE RECORDING: {{ formatTime(recordingSeconds) }}</span>
+      </div>
+      <canvas #waveformCanvas width="600" height="120" class="oscilloscope-canvas"></canvas>
+      <div class="recording-controls">
+        <button (click)="togglePause()" class="btn btn-outline" type="button">
+          {{ isPaused ? '▶ Resume' : '⏸ Pause' }}
+        </button>
+        <button (click)="stopRecording()" class="btn btn-record" type="button">
+          ⏹ Stop & Finish (Auto-Save)
+        </button>
+      </div>
+    </div>
+
+    <!-- Processing / Extracting Spinner (Shown while backend analyzes audio) -->
+    <div *ngIf="isSubmitting" class="submitting-state">
+      <div class="spinner"></div>
+      <h3>Analyzing Audio Signal & Extracting Acoustic Properties...</h3>
+      <p>Calculating Duration, Sample Rate (kHz), Bitrate (kbps), Loudness (dBFS), and SNR Quality Score</p>
+    </div>
+
+    <!-- Ready to Record or Upload State -->
+    <div *ngIf="!isRecording && !isSubmitting && !submissionSuccess" class="studio-options">
+      <!-- Live Record Action Card -->
+      <div class="option-card" [class.option-disabled]="!isFormValid">
+        <div class="mic-circle" [class.mic-disabled]="!isFormValid" (click)="startRecording()">
+          <span class="mic-icon">🎙️</span>
+        </div>
+        <h3>Record Live Mic</h3>
+        <p *ngIf="isFormValid">Speak directly into your microphone to record your voice sample</p>
+        <p *ngIf="!isFormValid" class="warning-hint">⚠️ Enter Name & 10-digit Phone above to enable recording</p>
+        
+        <button
+          (click)="startRecording()"
+          class="btn btn-primary btn-record-start"
+          [disabled]="!isFormValid"
+          type="button"
+        >
+          🎙️ Start Recording
+        </button>
+      </div>
+
+      <div class="or-divider">
+        <span>OR</span>
+      </div>
+
+      <!-- File Drop & Upload Zone -->
+      <div
+        class="drop-zone"
+        [class.drop-zone-disabled]="!isFormValid"
+        (dragover)="$event.preventDefault()"
+        (drop)="onFileDropped($event)"
+      >
+        <div class="drop-icon">📁</div>
+        <h3>Upload Audio File</h3>
+        <p *ngIf="isFormValid">Drag & drop WAV, MP3, WebM, OGG, or M4A</p>
+        <p *ngIf="!isFormValid" class="warning-hint">Enter Name & 10-digit Phone to upload</p>
+        <label for="fileUploadInput" class="btn btn-outline upload-btn" [class.btn-disabled]="!isFormValid">
+          Browse Computer
+        </label>
+        <input
+          id="fileUploadInput"
+          type="file"
+          accept="audio/*"
+          [disabled]="!isFormValid"
+          (change)="onFileSelected($event)"
+          style="display: none;"
+        />
+      </div>
+    </div>
+
+    <!-- Extraction Results Feedback Card with Audio Player -->
+    <div *ngIf="submissionSuccess && lastProperties" class="results-card">
+      <div class="results-header">
+        <div class="success-icon">✅</div>
+        <div>
+          <h3>Audio Successfully Analyzed & Saved to MySQL!</h3>
+          <p>Acoustic properties extracted for <strong>{{ lastWorkerName }}</strong> ({{ lastWorkerPhone }}):</p>
+        </div>
+      </div>
+
+      <!-- In-Place Playback Player -->
+      <div *ngIf="audioPreviewUrl" class="player-container">
+        <span class="player-label">🎧 Listen to your recording:</span>
+        <audio [src]="audioPreviewUrl" controls class="native-player"></audio>
+      </div>
+
+      <!-- Extracted Metrics Grid -->
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <span class="metric-title">⏱️ Duration</span>
+          <span class="metric-value">{{ lastProperties.duration_seconds }}s</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-title">🔊 Sample Rate</span>
+          <span class="metric-value">{{ lastProperties.sample_rate_khz }} kHz <small>({{ lastProperties.sample_rate_hz }} Hz)</small></span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-title">📶 Bitrate</span>
+          <span class="metric-value">{{ lastProperties.bitrate_kbps }} kbps</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-title">🎚️ Loudness (RMS)</span>
+          <span class="metric-value">{{ lastProperties.loudness_db }} dB</span>
+        </div>
+        <div class="metric-box metric-quality">
+          <span class="metric-title">🎯 Quality Score (SNR)</span>
+          <div class="quality-display">
+            <span class="quality-number">{{ lastProperties.snr_quality_score }} / 100</span>
+            <span
+              class="badge"
+              [ngClass]="{
+                'badge-excellent': lastProperties.quality_label === 'Excellent',
+                'badge-good': lastProperties.quality_label === 'Good',
+                'badge-fair': lastProperties.quality_label === 'Fair',
+                'badge-noisy': lastProperties.quality_label.includes('Noisy')
+              }"
+            >
+              {{ lastProperties.quality_label }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action to Record Again -->
+      <div class="results-actions">
+        <button (click)="resetRecording()" class="btn btn-primary" type="button">
+          🎙️ Record Another Sample
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Notification Alert -->
+  <div *ngIf="errorMessage" class="error-banner">
+    ⚠️ {{ errorMessage }}
+  </div>
+</div>

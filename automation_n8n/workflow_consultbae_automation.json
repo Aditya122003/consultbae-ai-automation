@@ -1,0 +1,260 @@
+{
+  "name": "ConsultBae Candidate Ingestion, Deduplication & AI Skill Tagging Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "candidate-ingest",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger-node-001",
+      "name": "Webhook Trigger: New Applicant / CSV Upload",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "cb-candidate-ingest"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalizes incoming candidate payload fields (phone, email, name, skills)\nconst raw = $input.item.json;\n\n// Clean phone number to 10 digits\nlet phone = (raw.phone || raw['Phone Number'] || raw.Phone || '').toString().replace(/[^0-9]/g, '');\nif (phone.startsWith('91') && phone.length === 12) phone = phone.substring(2);\nelse if (phone.startsWith('0') && phone.length === 11) phone = phone.substring(1);\n\n// Clean email to lowercase\nconst email = (raw.email || raw.email_id || raw.Email || '').toString().trim().toLowerCase();\n\n// Clean name to title case\nconst name = (raw.full_name || raw.worker_name || raw.Name || '').toString().trim();\nconst skills = (raw.skills || raw.skill_tags || '').toString().trim();\nconst city = (raw.city || raw.location || raw.City || 'Unknown').toString().trim();\n\nreturn [{\n  json: {\n    raw_input: raw,\n    full_name: name,\n    email: email || null,\n    phone: phone || null,\n    city: city,\n    skills: skills,\n    received_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "code-cleaner-node-002",
+      "name": "Normalize & Sanitize Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, full_name, email, phone, city, skill_category, data_sources FROM candidates WHERE (phone IS NOT NULL AND phone = '{{ $json.phone }}') OR (email IS NOT NULL AND email = '{{ $json.email }}') LIMIT 1;"
+      },
+      "id": "mysql-check-duplicate-003",
+      "name": "MySQL: Check Duplicate Candidate",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.1,
+      "position": [
+        700,
+        300
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "consultbae-mysql-cred",
+          "name": "ConsultBae MySQL DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-duplicate-check",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-duplicate-router-004",
+      "name": "Router: Is Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formats duplicate alert payload for notification\nconst existing = $input.item.json;\nconst incoming = $('Normalize & Sanitize Payload').item.json;\n\nreturn [{\n  json: {\n    status: 'DUPLICATE_DETECTED',\n    message: `Duplicate candidate detected for ${incoming.full_name}`,\n    matched_existing_id: existing.id,\n    matched_candidate_name: existing.full_name,\n    matched_phone: existing.phone,\n    matched_email: existing.email,\n    incoming_phone: incoming.phone,\n    incoming_email: incoming.email,\n    data_sources: existing.data_sources,\n    alert_timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "format-duplicate-alert-005",
+      "name": "Format Duplicate Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1150,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/YOUR_SLACK_WORKSPACE/YOUR_CHANNEL/YOUR_TOKEN",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=:warning: *ConsultBae Duplicate Alert*\n*Candidate:* {{ $json.matched_candidate_name }} (ID: #{{ $json.matched_existing_id }})\n*Matched On:* Phone: `{{ $json.matched_phone }}` | Email: `{{ $json.matched_email }}`\n*Existing Sources:* {{ $json.data_sources }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "slack-alert-node-006",
+      "name": "Send Slack/Webhook Duplicate Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1380,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert technical talent categorization engine at ConsultBae.\nGiven the following candidate skills: \"{{ $('Normalize & Sanitize Payload').item.json.skills }}\"\n\nClassify this candidate into exactly ONE of the following official categories:\n- Automation & AI Heavy (if skills include n8n, zapier, langchain, llm, ai automation, python workflows)\n- Web & Fullstack (if skills include react, javascript, typescript, fastapi, node, rest apis, angular)\n- Data & Analytics (if skills include sql, mysql, mongodb, pandas, etl, data warehousing)\n- QA & Web Scraping (if skills include selenium, web scraping, playwright, testing)\n- General Software Engineering (fallback)\n\nReturn a valid JSON object with keys:\n\"category\": string,\n\"confidence\": number,\n\"primary_tools\": array of strings,\n\"reasoning\": string",
+        "hasOutputParser": true
+      },
+      "id": "llm-tagger-node-007",
+      "name": "LLM: Auto-Tag Skill Category",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1150,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO candidates (full_name, email, phone, city, skills, skill_category, status, data_sources) VALUES ('{{ $('Normalize & Sanitize Payload').item.json.full_name }}', '{{ $('Normalize & Sanitize Payload').item.json.email }}', '{{ $('Normalize & Sanitize Payload').item.json.phone }}', '{{ $('Normalize & Sanitize Payload').item.json.city }}', '{{ $('Normalize & Sanitize Payload').item.json.skills }}', '{{ $json.category || 'General' }}', 'Active', 'n8n_Webhook_Automation');"
+      },
+      "id": "mysql-insert-new-008",
+      "name": "MySQL: Insert Enriched Candidate",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.1,
+      "position": [
+        1380,
+        420
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "consultbae-mysql-cred",
+          "name": "ConsultBae MySQL DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formats final successful ingestion response\nconst candidate = $('Normalize & Sanitize Payload').item.json;\nconst classification = $('LLM: Auto-Tag Skill Category').item.json;\n\nreturn [{\n  json: {\n    status: 'SUCCESS',\n    message: 'Candidate successfully ingested and categorized via AI',\n    full_name: candidate.full_name,\n    email: candidate.email,\n    phone: candidate.phone,\n    assigned_category: classification.category || 'General',\n    ai_confidence: classification.confidence || 0.95,\n    created_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "format-success-response-009",
+      "name": "Format Success Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger: New Applicant / CSV Upload": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Sanitize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Sanitize Payload": {
+      "main": [
+        [
+          {
+            "node": "MySQL: Check Duplicate Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL: Check Duplicate Candidate": {
+      "main": [
+        [
+          {
+            "node": "Router: Is Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router: Is Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Format Duplicate Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM: Auto-Tag Skill Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Duplicate Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Slack/Webhook Duplicate Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: Auto-Tag Skill Category": {
+      "main": [
+        [
+          {
+            "node": "MySQL: Insert Enriched Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL: Insert Enriched Candidate": {
+      "main": [
+        [
+          {
+            "node": "Format Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

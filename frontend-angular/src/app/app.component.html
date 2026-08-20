@@ -1,0 +1,260 @@
+<!-- Main Application Layout Template -->
+<!-- Features 5 interactive Task-Wise Navigation Cards (Task 1 -> Task 2 -> Task 3.1 -> Task 3.2 -> Tasks 4 & 5) -->
+
+<div class="app-layout">
+  <!-- Top Header -->
+  <header class="app-header glass-panel">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-logo">⚡</div>
+        <div class="brand-text">
+          <h1>ConsultBae <span class="badge-ai">AI Automation Platform</span></h1>
+          <p class="brand-tagline">Tasks 1–5 End-to-End Delivery • Click any of the 5 Task Cards below to explore</p>
+        </div>
+      </div>
+
+      <!-- Current Active Task Status Indicator -->
+      <div class="header-status">
+        <span class="status-indicator"></span>
+        <span class="status-text">{{ getActiveTaskLabel() }}</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 5 Interactive Task Navigation Cards (Task 1 -> Task 2 -> Task 3.1 -> Task 3.2 -> Tasks 4 & 5) -->
+  <section class="kpi-section">
+    <div class="kpi-grid-5">
+      <!-- 1. TASK 1 CARD: Talent Directory -->
+      <div
+        class="kpi-card glass-panel"
+        [class.card-active]="activeTab === 'task1'"
+        (click)="setTab('task1')"
+      >
+        <div class="kpi-icon icon-cyan">👥</div>
+        <div class="kpi-info">
+          <div class="kpi-tag-row">
+            <span class="kpi-task-badge task-1-badge">TASK 1</span>
+            <span class="kpi-label">Talent Directory</span>
+          </div>
+          <span class="kpi-value">{{ stats ? stats.total_candidates : '0' }} Profiles</span>
+          <span class="kpi-sub">Master Directory in MySQL</span>
+        </div>
+      </div>
+
+      <!-- 2. TASK 2 CARD: n8n Automation -->
+      <div
+        class="kpi-card glass-panel"
+        [class.card-active]="activeTab === 'task2'"
+        (click)="setTab('task2')"
+      >
+        <div class="kpi-icon icon-purple">⚡</div>
+        <div class="kpi-info">
+          <div class="kpi-tag-row">
+            <span class="kpi-task-badge task-2-badge">TASK 2</span>
+            <span class="kpi-label">n8n Automation</span>
+          </div>
+          <span class="kpi-value">Live Flow</span>
+          <span class="kpi-sub">Duplicate Alerts & AI Tagging</span>
+        </div>
+      </div>
+
+      <!-- 3. TASK 3.1 CARD: Audio Collection Studio -->
+      <div
+        class="kpi-card glass-panel"
+        [class.card-active]="activeTab === 'task3-1'"
+        (click)="setTab('task3-1')"
+      >
+        <div class="kpi-icon icon-rose">🎙️</div>
+        <div class="kpi-info">
+          <div class="kpi-tag-row">
+            <span class="kpi-task-badge task-31-badge">TASK 3.1</span>
+            <span class="kpi-label">Audio Collection</span>
+          </div>
+          <span class="kpi-value">Live Studio</span>
+          <span class="kpi-sub">Mic Capture & Signal Analysis</span>
+        </div>
+      </div>
+
+      <!-- 4. TASK 3.2 CARD: Audio Catalog -->
+      <div
+        class="kpi-card glass-panel"
+        [class.card-active]="activeTab === 'task3-2'"
+        (click)="setTab('task3-2')"
+      >
+        <div class="kpi-icon icon-emerald">📂</div>
+        <div class="kpi-info">
+          <div class="kpi-tag-row">
+            <span class="kpi-task-badge task-32-badge">TASK 3.2</span>
+            <span class="kpi-label">Audio Catalog</span>
+          </div>
+          <span class="kpi-value">Audio Submissions</span>
+          <span class="kpi-sub">{{ stats ? stats.total_audio_submissions : 0 }} Saved • SNR Scores</span>
+        </div>
+      </div>
+
+      <!-- 5. TASKS 4 & 5 CARD: Audit & Scaling -->
+      <div
+        class="kpi-card glass-panel"
+        [class.card-active]="activeTab === 'task4-5'"
+        (click)="setTab('task4-5')"
+      >
+        <div class="kpi-icon icon-amber">📑</div>
+        <div class="kpi-info">
+          <div class="kpi-tag-row">
+            <span class="kpi-task-badge task-4-badge">TASKS 4 & 5</span>
+            <span class="kpi-label">Audit & Scaling</span>
+          </div>
+          <span class="kpi-value">{{ liveAuditLogs.length }} Fixes / 5k Scale</span>
+          <span class="kpi-sub">Data Audit & Cloud Blueprint</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main View Container for the 5 Deliverable Tabs -->
+  <main class="main-content">
+    <!-- View 1: Task 1 — Unified Talent Directory -->
+    <div *ngIf="activeTab === 'task1'" class="tab-view">
+      <app-candidate-directory (statsUpdated)="fetchStats()"></app-candidate-directory>
+    </div>
+
+    <!-- View 2: Task 2 — Automation Simulator & Webhook Pipeline -->
+    <div *ngIf="activeTab === 'task2'" class="tab-view">
+      <app-automation-simulator (statsUpdated)="fetchStats()"></app-automation-simulator>
+    </div>
+
+    <!-- View 3: Task 3.1 — Audio Collection Studio -->
+    <div *ngIf="activeTab === 'task3-1'" class="tab-view">
+      <app-audio-recorder (submissionCreated)="onAudioSubmitted()"></app-audio-recorder>
+    </div>
+
+    <!-- View 4: Task 3.2 — Audio Catalog & Acoustic Analysis Grid -->
+    <div *ngIf="activeTab === 'task3-2'" class="tab-view">
+      <div class="task-banner-header">
+        <div class="task-banner-badge task-32-badge">Task 3.2 Deliverable</div>
+        <h2>Audio Submissions Catalog & Acoustic Analysis Grid</h2>
+        <p>Explore all recorded voice samples with extracted duration, sample rate (kHz), bitrate (kbps), loudness (dBFS), and SNR quality scores from MySQL.</p>
+      </div>
+      <app-audio-gallery (statsUpdated)="fetchStats()"></app-audio-gallery>
+    </div>
+
+    <!-- View 5: Tasks 4 & 5 — Data Quality Audit & Scaling Architecture Blueprint -->
+    <div *ngIf="activeTab === 'task4-5'" class="tab-view">
+      <div class="task-banner-header">
+        <div class="task-banner-badge task-4-badge">Tasks 4 & 5 Deliverables</div>
+        <h2>Comprehensive Data Quality Audit & 5,000 Worker Scaling Architecture</h2>
+        <p>Itemized resolution of data anomalies and cloud-native event-driven blueprint for 5,000 concurrent gig workers.</p>
+      </div>
+
+      <div class="docs-container glass-panel">
+        <!-- Task 4 Section -->
+        <div class="doc-section">
+          <div class="doc-header">
+            <span class="badge-task">Task 4 Deliverable</span>
+            <h3>📋 Data Quality Issues Report Summary</h3>
+          </div>
+          <p class="doc-desc">Data quality normalizations, smart deduplication merges, and automated fixes executed during CSV import pipeline. <strong style="color:#a78bfa;">Rejected rows (failed imports) are visible in Task 1 → Log History.</strong></p>
+          
+          <div class="report-toolbar">
+            <span class="report-stats">
+              <strong>{{ liveAuditLogs.length }}</strong> issues cataloged across imported datasets
+            </span>
+            <button (click)="downloadIssuesCsv()" class="btn btn-outline btn-download" type="button" [disabled]="liveAuditLogs.length === 0">
+              ⬇️ Download CSV Report
+            </button>
+          </div>
+
+          <!-- Empty State when no audit log entries exist -->
+          <div *ngIf="liveAuditLogs.length === 0" class="empty-history" style="text-align: center; padding: 40px 20px;">
+            <p class="text-dim">No data quality issues or merge events logged in database yet. Upload CSV files to view live data cleaning audit report.</p>
+          </div>
+
+          <!-- Live Audit Table — scrollable, shows all 186 quality-fix records -->
+          <div *ngIf="liveAuditLogs.length > 0"
+               class="table-responsive"
+               style="max-height: 520px; overflow-y: auto; border-radius: 8px; border: 1px solid #374151;">
+            <table class="custom-table issues-table bordered-table">
+              <thead style="position: sticky; top: 0; z-index: 2;">
+                <tr>
+                  <th>Source</th>
+                  <th>Issue Type</th>
+                  <th>CSV Row</th>
+                  <th>Root Cause</th>
+                  <th>Automated Fix Applied</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let issue of liveAuditLogs">
+                  <td class="source-cell">
+                    <span class="source-pill"
+                      [class.src-1]="issue.source_file && issue.source_file.includes('source1')"
+                      [class.src-2]="issue.source_file && issue.source_file.includes('source2')"
+                      [class.src-3]="issue.source_file && issue.source_file.includes('source3')"
+                      [class.src-csv]="issue.source_file && !issue.source_file.includes('source1') && !issue.source_file.includes('source2') && !issue.source_file.includes('source3') && issue.source_file !== 'Manual_UI_Edit'"
+                      [class.src-manual]="issue.source_file === 'Manual_UI_Edit'"
+                    >{{ issue.source_file }}</span>
+                  </td>
+                  <td style="font-size:0.8rem; color:#a78bfa; font-weight:600;">
+                    {{ issue.issue_type }}
+                  </td>
+                  <td class="rows-cell">{{ issue.row_index ? 'Row ' + issue.row_index : '—' }}</td>
+                  <td class="cause-cell">
+                    {{ issue.issue_type && issue.issue_type.toLowerCase().includes('merge') ? 'Duplicate Candidate Match (Phone / Email / Name)'
+                      : issue.issue_type && issue.issue_type.toLowerCase().includes('edited') ? 'Manual UI Edit Re-cleaned via Pipeline'
+                      : issue.issue_type && issue.issue_type.toLowerCase().includes('blocked') ? 'Duplicate Conflict Blocked'
+                      : 'Pipeline Normalisation & Formatting Fix' }}
+                  </td>
+                  <td class="fix-cell fix-text">{{ issue.action_taken }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <hr class="doc-divider" />
+
+        <!-- Task 5 Section -->
+        <div class="doc-section">
+          <div class="doc-header">
+            <span class="badge-task badge-purple">Task 5 Deliverable</span>
+            <h3>🚀 Scaling Architecture Blueprint (5,000 Gig Workers)</h3>
+          </div>
+          <p class="doc-desc">Production architecture designed to handle 5,000 concurrent gig workers submitting audio on the same day without downtime:</p>
+
+          <div class="scaling-grid">
+            <div class="scaling-box">
+              <h4>💥 What Breaks First</h4>
+              <p>• <strong>Synchronous Audio CPU:</strong> 5,000 ffmpeg/numpy threads crash server with 504 timeouts.</p>
+              <p>• <strong>Network Ingress:</strong> 2.5 Gbps burst upload saturates VM network.</p>
+              <p>• <strong>MySQL Pool:</strong> 5,000 concurrent connections overwhelm MySQL max 150 limit.</p>
+            </div>
+
+            <div class="scaling-box">
+              <h4>🛠️ Production Redesign</h4>
+              <p>• <strong>Direct-to-S3 Pre-signed URLs:</strong> Zero audio stream bytes touch backend server CPU/RAM.</p>
+              <p>• <strong>Amazon SQS Queue Decoupling:</strong> Buffers 10,000+ burst submissions in milliseconds.</p>
+              <p>• <strong>Auto-Scaling Lambda Processors:</strong> Scales horizontally from 2 to 100+ audio workers.</p>
+              <p>• <strong>Amazon RDS Proxy + Aurora MySQL:</strong> Multiplexes thousands of connections into steady pool.</p>
+            </div>
+
+            <div class="scaling-box">
+              <h4>💰 Estimated AWS Monthly Cost</h4>
+              <p>• S3 Storage & API Calls: <strong>$5.05 / mo</strong></p>
+              <p>• AWS Lambda Audio Extraction: <strong>$1.35 / mo</strong></p>
+              <p>• Amazon RDS MySQL + RDS Proxy: <strong>$67.00 / mo</strong></p>
+              <p>• CloudFront CDN & Route 53: <strong>$3.50 / mo</strong></p>
+              <p>• <strong>TOTAL ESTIMATED COST: ~$97.90 / month</strong></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Application Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <p>ConsultBae AI Automation Platform • Complete Tasks 1–5 Delivery • Built with Angular 19, FastAPI, MySQL & Web Audio API</p>
+    </div>
+  </footer>
+</div>

@@ -1,0 +1,14 @@
+Candidate Name,Email Address,Phone Number,Location,Skills Set,Current CTC (LPA)
+Ananya Sharma,ananya.sharma@example.com,9876500101,Bengaluru,"Lead Generation, B2B Sales, CRM, Client Acquisition",12.5
+Rahul Verma,rahul.v@example.com,9876500102,Mumbai,"Talent Acquisition, Performance Management, HR Policies",9.0
+Pooja Nair,pooja.nair@example.com,9876500103,Delhi,"SEO, Content Marketing, Google Ads, Campaign Analytics",8.5
+Vikram Rao,vikram.rao@example.com,9876500104,Hyderabad,"Financial Modeling, Tax Audit, QuickBooks, Tally",14.0
+Neha Kulkarni,neha.k@example.com,9876500105,Pune,"Figma, UI/UX Design, Wireframing, Adobe XD",10.5
+Amit Patel,amit.patel@example.com,9876500106,Gurugram,"Supply Chain, Logistics, Vendor Management, Inventory",11.0
+Siddharth Sen,siddharth.s@example.com,9876500107,Chennai,"Python, Django, PostgreSQL, Docker, AWS",16.5
+Kavya Singh,kavya.singh@example.com,9876500108,Noida,"--",7.0
+,invalid_candidate1@example.com,9876500110,Ahmedabad,"Sales, Telecalling",5.0
+,invalid_candidate2@example.com,9876500112,Pune,"Digital Marketing",6.0
+Suresh Kumar,,,,Python,7.5
+,,9876500114,Mumbai,"HR Operations",8.0
+Meera Joshi,meera.j@example.com,9876500111,Jaipur,"Recruitment, HR Operations",8.0

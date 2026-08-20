@@ -1,0 +1,20 @@
+# Environment and cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.env
+.venv
+env/
+venv/
+
+# Node and Angular build artifacts
+node_modules/
+dist/
+.angular/
+.npm
+*.log
+
+# Audio uploads directory for local temp files
+backend/uploads/
+uploads/

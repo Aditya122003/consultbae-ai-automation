@@ -1,0 +1,160 @@
+<!-- Low-Code n8n Automation Simulator Template -->
+<!-- Features real-time Webhook Ingestion, MySQL Deduplication, and AI LLM Skill Tagging -->
+
+<div class="simulator-container glass-panel">
+  <!-- Simulator Header -->
+  <div class="simulator-header">
+    <div class="header-left">
+      <div class="header-icon">⚡</div>
+      <div>
+        <div class="task-badge-pill">Task 2 Deliverable</div>
+        <h2>n8n Automation Flow Simulator</h2>
+        <p class="subtitle">Interactive tester demonstrating real-time Webhook Ingestion, MySQL Deduplication, and LLM Skill Auto-Tagging</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="simulator-grid">
+    <!-- Left Column: Webhook Payload Form -->
+    <div class="payload-form">
+      <h3>1. Webhook Ingestion Payload</h3>
+      <p class="form-desc">Simulate a candidate application received via webhook or external integration</p>
+
+      <div class="form-group">
+        <label for="testName">Full Name: <span class="required-star">*</span></label>
+        <input
+          type="text"
+          id="testName"
+          [(ngModel)]="testName"
+          (input)="onNameInput()"
+          placeholder="e.g. Tanvi Gupta"
+          class="custom-input"
+          [class.input-invalid]="nameTouched && !isNameValid"
+          [class.input-valid]="nameTouched && isNameValid"
+        />
+        <span *ngIf="nameTouched && !isNameValid" class="field-error">
+          Full Name is required (minimum 2 characters)
+        </span>
+      </div>
+
+      <div class="form-row">
+        <!-- Phone Number with validation -->
+        <div class="form-group">
+          <div class="label-row">
+            <label for="testPhone">Phone Number: <span class="required-star">*</span></label>
+            <span class="digit-counter" [class.count-valid]="isPhoneValid">
+              {{ testPhone.length }} / 10
+            </span>
+          </div>
+          <input
+            type="tel"
+            id="testPhone"
+            [(ngModel)]="testPhone"
+            (input)="onPhoneInput()"
+            maxlength="10"
+            placeholder="e.g. 9876543210"
+            class="custom-input"
+            [class.input-invalid]="phoneTouched && !isPhoneValid"
+            [class.input-valid]="isPhoneValid"
+          />
+          <span *ngIf="phoneTouched && !isPhoneValid" class="field-error">
+            Enter a valid 10-digit phone number
+          </span>
+        </div>
+
+        <!-- Email with validation -->
+        <div class="form-group">
+          <label for="testEmail">Candidate Email: <span class="optional-label">(optional)</span></label>
+          <input
+            type="email"
+            id="testEmail"
+            [(ngModel)]="testEmail"
+            (input)="onEmailInput()"
+            placeholder="e.g. tanvi.gupta@example.com"
+            class="custom-input"
+            [class.input-invalid]="emailTouched && !isEmailValid"
+            [class.input-valid]="emailTouched && isEmailValid"
+          />
+          <span *ngIf="emailTouched && !isEmailValid" class="field-error">
+            Enter a valid email address (e.g. user&#64;example.com)
+          </span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="testCity">City:</label>
+          <input type="text" id="testCity" [(ngModel)]="testCity" placeholder="e.g. Bengaluru" class="custom-input" />
+        </div>
+        <div class="form-group">
+          <label for="testSkills">Skills Set:</label>
+          <input type="text" id="testSkills" [(ngModel)]="testSkills" placeholder="e.g. n8n, LangChain, REST APIs, SQL" class="custom-input" />
+        </div>
+      </div>
+
+      <button
+        (click)="triggerFlow()"
+        class="btn btn-primary btn-trigger"
+        [disabled]="isExecuting"
+        type="button"
+      >
+        <span *ngIf="!isExecuting">Run n8n Automation Pipeline</span>
+        <span *ngIf="isExecuting">Executing n8n Flow...</span>
+      </button>
+
+      <div *ngIf="errorMessage" class="error-msg-banner">
+        ❌ {{ errorMessage }}
+      </div>
+    </div>
+
+    <!-- Right Column: Live Automation Execution Trace -->
+    <div class="execution-trace">
+      <h3>2. Flow Execution & Routing Trace</h3>
+      <p class="form-desc">Real-time trace through MySQL Lookup -> Decision Router -> AI Classifier -> Alert Notification</p>
+
+      <div *ngIf="!flowResult && !isExecuting" class="trace-empty">
+        <span class="empty-icon">⚙️</span>
+        <p>Click <strong>"Run n8n Automation Pipeline"</strong> to execute the low-code workflow trace.</p>
+      </div>
+
+      <div *ngIf="isExecuting" class="trace-loading">
+        <div class="spinner"></div>
+        <p>Executing Webhook -> MySQL Deduplication -> Router -> AI Chain...</p>
+      </div>
+
+      <!-- Execution Output Cards -->
+      <div *ngIf="flowResult && !isExecuting" class="trace-result">
+        <!-- Duplicate Alert Branch Output -->
+        <div *ngIf="flowResult.status === 'DUPLICATE_DETECTED'" class="alert-box duplicate-box">
+          <div class="box-header">
+            <div>
+              <h4>Duplicate Candidate Intercepted</h4>
+              <p>Duplicate candidate application detected. Notification email sent to Admin.</p>
+            </div>
+          </div>
+          <div class="box-content">
+            <p><strong>Deduplication Status:</strong> Prevented duplicate database insert; notification email successfully dispatched to Admin.</p>
+          </div>
+        </div>
+
+        <!-- New Candidate LLM Tagging Branch Output -->
+        <div *ngIf="flowResult.status === 'SUCCESS_NEW_CANDIDATE'" class="alert-box success-box">
+          <div class="box-header">
+            <span class="box-icon">🤖</span>
+            <div>
+              <h4>New Unique Candidate</h4>
+              <p>Skills classified via AI Classifier</p>
+            </div>
+          </div>
+          <div class="box-content">
+            <p><strong>Assigned Domain Category:</strong> <span class="badge badge-excellent">{{ flowResult.assigned_category }}</span></p>
+            <p><strong>LLM Confidence:</strong> {{ (flowResult.confidence * 100).toFixed(0) }}%</p>
+            <p><strong>Extracted AI Tags:</strong> {{ flowResult.extracted_tags?.join(', ') }}</p>
+            <p><strong>Database Action:</strong> Inserted new candidate record into <code>candidates</code> table</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

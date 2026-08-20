@@ -1,0 +1,470 @@
+<!-- Unified Candidate Master Directory Template -->
+<!-- Renders searchable data table and cards for all 53 consolidated candidate profiles from Task 1 -->
+
+<!-- Top-Right Floating Toast — green (success) / red (error) / blue (info) -->
+<div *ngIf="toastMessage"
+     class="top-right-toast"
+     [class.top-right-toast--error]="toastType === 'error'"
+     [class.top-right-toast--info]="toastType === 'info'">
+  {{ toastMessage }}
+</div>
+
+<div class="directory-container glass-panel">
+  <!-- Directory Header -->
+  <div class="directory-header">
+    <div class="header-left">
+      <div class="header-icon">👥</div>
+      <div>
+        <div class="task-badge-pill">Task 1 Deliverable</div>
+        <h2>Consolidated Talent Directory</h2>
+        <p class="subtitle">Unified master candidate database synchronized with MySQL</p>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <span class="count-badge">{{ filteredCandidates.length }} Profiles</span>
+      <input #csvFileInput type="file" accept=".csv" multiple style="display: none" (change)="onCsvFileSelected($event)" />
+      <button (click)="downloadCsvTemplate()" class="btn btn-outline template-btn" type="button" title="Download standard CSV import template">
+        Download Template
+      </button>
+      <button (click)="triggerCsvFileSelect(csvFileInput)" class="btn btn-primary upload-csv-btn" [disabled]="isUploadingCsv" type="button" title="Upload single or multiple CSV files at once">
+        <span *ngIf="!isUploadingCsv">Upload CSV(s)</span>
+        <span *ngIf="isUploadingCsv">Ingesting CSV(s)...</span>
+      </button>
+      <button (click)="openImportHistoryModal()" class="btn btn-outline history-btn" type="button" title="View CSV import log history & download rejected logs">
+        Log History
+      </button>
+      <button (click)="downloadReport()" class="btn btn-outline download-report-btn" type="button" title="Download CSV report of currently filtered candidates and visible columns">
+        Download Report
+      </button>
+      <button (click)="loadCandidates()" class="btn btn-outline refresh-btn" type="button">
+        Refresh
+      </button>
+      <button (click)="openCsvSummaryModal()" class="btn btn-outline info-btn" type="button" title="View CSV Ingestion & Deduplication Summary Metrics">
+        i
+      </button>
+    </div>
+  </div>
+
+  <!-- CSV Status Alert Banners -->
+  <div *ngIf="csvSuccessMessage" class="alert-success" style="margin: 12px 24px -10px; padding: 12px 16px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); color: #34d399; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">
+    ✅ {{ csvSuccessMessage }}
+  </div>
+
+  <!-- CSV Error Banner removed — errors now shown as top-right red toast only -->
+
+  <!-- Search & Filter Controls -->
+  <div class="filter-toolbar">
+    <div class="search-input-wrapper">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onFilterChange()"
+        placeholder="Search candidate name, email, phone, or skills..."
+        class="custom-input search-input"
+      />
+    </div>
+
+    <div class="filter-group">
+      <label for="cityFilter">City:</label>
+      <select
+        id="cityFilter"
+        [(ngModel)]="selectedCity"
+        (change)="onFilterChange()"
+        class="custom-input select-input"
+      >
+        <option *ngFor="let c of citiesList" [value]="c">{{ c }}</option>
+      </select>
+    </div>
+
+    <div class="filter-group manage-cols-group">
+      <button (click)="toggleManageColsDropdown()" class="btn btn-outline manage-cols-btn" type="button">
+        ⚙️ Manage Columns ▾
+      </button>
+      <div *ngIf="isManageColsOpen" class="manage-cols-dropdown glass-panel">
+        <div class="dropdown-header">Show / Hide Columns:</div>
+        <label *ngFor="let item of columnMap | keyvalue" class="checkbox-label">
+          <input type="checkbox" [checked]="item.value.visible" (change)="toggleColumnVisibility(item.key)" />
+          <span>{{ item.value.label }}</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Querying MySQL database...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredCandidates.length === 0" class="empty-state">
+    <div class="empty-icon">🔍</div>
+    <h3>No Matching Profiles</h3>
+    <p>No candidates match your search and filter criteria.</p>
+  </div>
+
+  <!-- Table View for Desktop -->
+  <div *ngIf="!isLoading && filteredCandidates.length > 0" class="table-responsive">
+    <table class="custom-table bordered-table">
+      <thead>
+        <tr>
+          <th *ngIf="columnMap['seq']?.visible">#</th>
+          <th *ngIf="columnMap['name']?.visible">Candidate Name</th>
+          <th *ngIf="columnMap['email']?.visible">Email Address</th>
+          <th *ngIf="columnMap['phone']?.visible">Phone Number</th>
+          <th *ngIf="columnMap['location']?.visible">Location</th>
+          <th *ngIf="columnMap['category']?.visible">Domain Category</th>
+          <th *ngIf="columnMap['comp']?.visible">Compensation / Rate</th>
+          <th *ngIf="columnMap['skills']?.visible">Skills Set</th>
+          <th *ngIf="columnMap['verified']?.visible">Verification</th>
+          <th *ngIf="columnMap['sources']?.visible">Data Sources</th>
+          <!-- Dynamic Extra Columns Headers -->
+          <th *ngFor="let extraCol of getExtraColumnKeys()" [hidden]="!columnMap[extraCol.key].visible">
+            {{ extraCol.label }}
+          </th>
+          <th *ngIf="columnMap['actions']?.visible">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let cand of filteredCandidates; let i = index">
+          <!-- Candidate Sequence Index -->
+          <td *ngIf="columnMap['seq']?.visible" class="id-cell">#{{ i + 1 }}</td>
+
+          <!-- Candidate Name -->
+          <td *ngIf="columnMap['name']?.visible" class="name-cell">
+            <div class="cand-name">{{ cand.full_name }}</div>
+          </td>
+
+          <!-- Email Address -->
+          <td *ngIf="columnMap['email']?.visible" class="email-cell">
+            <span *ngIf="cand.email" class="cand-email">{{ cand.email }}</span>
+            <span *ngIf="!cand.email" class="text-dim">--</span>
+          </td>
+
+          <!-- Phone Number -->
+          <td *ngIf="columnMap['phone']?.visible" class="phone-cell">
+            <span *ngIf="cand.phone" class="cand-phone">{{ cand.phone }}</span>
+            <span *ngIf="!cand.phone" class="text-dim">--</span>
+          </td>
+
+          <!-- Location -->
+          <td *ngIf="columnMap['location']?.visible">
+            <span class="city-pill">📍 {{ cand.city || 'Unknown' }}</span>
+          </td>
+
+          <!-- Domain Category -->
+          <td *ngIf="columnMap['category']?.visible">
+            <span
+              class="badge"
+              [ngClass]="{
+                'badge-excellent': cand.skill_category === 'Automation & AI Heavy',
+                'badge-good': cand.skill_category === 'Web & Fullstack',
+                'badge-fair': cand.skill_category === 'Data & Analytics',
+                'badge-noisy': cand.skill_category === 'QA & Web Scraping'
+              }"
+            >
+              {{ cand.skill_category }}
+            </span>
+          </td>
+
+          <!-- Financial Compensation / Rate -->
+          <td *ngIf="columnMap['comp']?.visible" class="comp-cell">
+            <div *ngIf="cand.current_ctc_lpa" class="ctc-val">
+              <strong>{{ cand.current_ctc_lpa }}</strong> LPA <small>(CTC)</small>
+            </div>
+            <div *ngIf="cand.rate_hourly_inr" class="rate-val">
+              ₹<strong>{{ cand.rate_hourly_inr }}</strong>/hr
+            </div>
+            <div *ngIf="cand.rate_monthly_inr" class="rate-val">
+              ₹<strong>{{ cand.rate_monthly_inr }}</strong>/mo
+            </div>
+            <div *ngIf="!cand.current_ctc_lpa && !cand.rate_hourly_inr && !cand.rate_monthly_inr" class="text-dim">
+              -
+            </div>
+          </td>
+
+          <!-- Skills Set Pills -->
+          <td *ngIf="columnMap['skills']?.visible" class="skills-cell">
+            <div class="skills-wrap">
+              <span *ngFor="let s of getSkillsList(cand.skills)" class="skill-pill">
+                {{ s }}
+              </span>
+            </div>
+          </td>
+
+          <!-- Verification & Projects -->
+          <td *ngIf="columnMap['verified']?.visible" class="verify-cell">
+            <span *ngIf="isCandidateVerified(cand)" class="verified-badge">
+              ✓ Verified ({{ cand.projects_completed || 0 }} projects)
+            </span>
+            <span *ngIf="!isCandidateVerified(cand)" class="unverified-badge">
+              ✕ Unverified
+            </span>
+          </td>
+
+          <!-- Sources Badges -->
+          <td *ngIf="columnMap['sources']?.visible" class="sources-cell">
+            <div class="sources-wrap">
+              <span *ngFor="let src of getSourceTags(cand.data_sources)" class="badge badge-source">
+                {{ src }}
+              </span>
+            </div>
+          </td>
+
+          <!-- Dynamic Extra Columns Cells -->
+          <td *ngFor="let extraCol of getExtraColumnKeys()" [hidden]="!columnMap[extraCol.key].visible" class="extra-cell">
+            <span class="city-pill">{{ getExtraFieldValue(cand, extraCol.label) }}</span>
+          </td>
+
+          <!-- Actions -->
+          <td *ngIf="columnMap['actions']?.visible" class="actions-cell">
+            <button (click)="openEditModal(cand)" class="btn-edit" type="button" title="Edit candidate data and re-run cleaning pipeline">
+              Edit
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Edit Candidate Modal -->
+<div *ngIf="editingCandidate" class="modal-backdrop">
+  <div class="modal-card glass-panel">
+    <div class="modal-header">
+      <h3>Edit Candidate Profile</h3>
+      <button (click)="closeEditModal()" class="close-btn" type="button">✕</button>
+    </div>
+
+    <p class="modal-subtitle">
+      Updating candidate data re-executes the cleaning pipeline (normalizing phone numbers, canonicalizing cities, lowercasing emails, and logging audit trail).
+    </p>
+
+    <div *ngIf="cardErrorMessage" class="alert-error">
+      {{ cardErrorMessage }}
+    </div>
+
+    <form (ngSubmit)="saveCandidateEdit()" class="edit-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" [(ngModel)]="editForm.full_name" name="full_name" class="custom-input" required />
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="text" [(ngModel)]="editForm.phone" name="phone" placeholder="10-digit phone" class="custom-input" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" [(ngModel)]="editForm.email" name="email" class="custom-input" />
+        </div>
+        <div class="form-group">
+          <label>City / Location</label>
+          <input type="text" [(ngModel)]="editForm.city" name="city" placeholder="e.g. Gurugram, Pune" class="custom-input" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Skills (Comma-separated)</label>
+          <input type="text" [(ngModel)]="editForm.skills" name="skills" placeholder="e.g. Python, FastAPI, React, n8n" class="custom-input" />
+        </div>
+        <div class="form-group">
+          <label>Current CTC (LPA)</label>
+          <input type="number" step="0.1" [(ngModel)]="editForm.current_ctc_lpa" name="current_ctc_lpa" placeholder="e.g. 4.5" class="custom-input" />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button (click)="closeEditModal()" class="btn btn-outline" type="button" [disabled]="isSaving">
+          Cancel
+        </button>
+        <button class="btn btn-primary" type="submit" [disabled]="isSaving">
+          <span *ngIf="!isSaving">💾 Save & Re-run Pipeline</span>
+          <span *ngIf="isSaving">⚡ Cleaning Data...</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+
+<!-- CSV Log History Modal — Clean session summary table (most recent first) -->
+<div *ngIf="isHistoryModalOpen" class="modal-overlay" (click)="closeImportHistoryModal()">
+  <div class="modal-card glass-panel history-modal-card" (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="modal-header" style="flex-shrink: 0;">
+      <div>
+        <h3>📋 Import Rejection Log History</h3>
+        <p class="modal-subtitle" style="margin: 4px 0 0;">
+          Each row = one upload session · <strong style="color:#f87171;">Rejected rows only</strong> ·
+          <span style="color:#a78bfa;">Quality fixes are in Task 4 Report</span>
+        </p>
+      </div>
+      <button (click)="closeImportHistoryModal()" class="close-btn" type="button">&times;</button>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="isLoadingHistory" style="padding: 50px; text-align:center; flex-shrink:0;">
+      <div class="spinner"></div>
+      <p style="color:#9ca3af; margin-top:12px; font-size:0.9rem;">Loading import sessions...</p>
+    </div>
+
+    <!-- Empty -->
+    <div *ngIf="!isLoadingHistory && groupedRejectedLogs.length === 0"
+         style="text-align:center; padding:60px 20px; flex-shrink:0;">
+      <div style="font-size:2.8rem; margin-bottom:14px;">✅</div>
+      <p class="text-dim" style="font-size:0.95rem;">No rejected rows found — all imports passed validation.</p>
+    </div>
+
+    <!-- Session Summary Table -->
+    <div *ngIf="!isLoadingHistory && groupedRejectedLogs.length > 0"
+         style="flex: 1; min-height: 0; overflow-y: auto; margin-top: 18px;">
+
+      <!-- Stats bar -->
+      <div style="display:flex; justify-content:space-between; align-items:center;
+                  margin-bottom: 14px; padding: 0 2px; flex-shrink:0;">
+        <span style="font-size:0.82rem; color:#9ca3af;">
+          <strong style="color:#f87171;">{{ csvAuditLogs.length }}</strong> rejected records ·
+          <strong style="color:#a78bfa;">{{ groupedRejectedLogs.length }}</strong> session(s)
+        </span>
+        <button (click)="downloadRejectedCsv()" class="btn btn-outline" type="button"
+                style="font-size:0.75rem; padding:5px 14px; color:#f87171;
+                       border-color:rgba(248,113,113,0.4);"
+                title="Download ALL rejected rows from all sessions">
+          ⬇️ Download All ({{ csvAuditLogs.length }})
+        </button>
+      </div>
+
+      <!-- Table -->
+      <table class="custom-table bordered-table" style="width:100%; table-layout:fixed;">
+        <thead>
+          <tr>
+            <th style="width:5%;  text-align:center; background:#0d1117; padding:12px 10px;">#</th>
+            <th style="width:28%; background:#0d1117; padding:12px 14px;">Import Date &amp; Time</th>
+            <th style="width:37%; background:#0d1117; padding:12px 14px;">Source File(s)</th>
+            <th style="width:15%; text-align:center; background:#0d1117; padding:12px 10px;">Rejected</th>
+            <th style="width:15%; text-align:center; background:#0d1117; padding:12px 10px;">Download</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let group of groupedRejectedLogs; let gi = index"
+              style="transition: background 0.15s;">
+            <!-- # -->
+            <td style="text-align:center; color:#6b7280; font-size:0.78rem; font-weight:600;">
+              {{ gi + 1 }}
+            </td>
+            <!-- Date & Time -->
+            <td style="padding: 12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span *ngIf="gi === 0"
+                      style="background:rgba(52,211,153,0.15); border:1px solid rgba(52,211,153,0.4);
+                             color:#34d399; font-size:0.62rem; font-weight:800; padding:1px 6px;
+                             border-radius:3px; text-transform:uppercase; white-space:nowrap; flex-shrink:0;">
+                  LATEST
+                </span>
+                <span style="color:#f3f4f6; font-weight:600; font-size:0.85rem;">
+                  {{ group.sessionLabel }}
+                </span>
+              </div>
+            </td>
+            <!-- Source Files -->
+            <td style="padding: 12px 14px;">
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <span *ngFor="let sf of group.sourceFiles"
+                      style="color:#c084fc; font-size:0.72rem; font-weight:600;
+                             word-break:break-all; line-height:1.3;">
+                  {{ sf }}
+                </span>
+              </div>
+            </td>
+            <!-- Rejected count -->
+            <td style="text-align:center;">
+              <span style="background:rgba(248,113,113,0.15); border:1px solid rgba(248,113,113,0.35);
+                           color:#f87171; font-size:0.88rem; font-weight:800;
+                           padding: 4px 12px; border-radius:20px; white-space:nowrap;">
+                {{ group.logs.length }}
+              </span>
+            </td>
+            <!-- Download button -->
+            <td style="text-align:center;">
+              <button (click)="downloadRejectedCsv(group.logs)"
+                      class="btn btn-primary btn-sm"
+                      type="button"
+                      [title]="'Download ' + group.logs.length + ' rejected rows from ' + group.sessionLabel"
+                      style="padding: 6px 14px; font-size:0.78rem; display:inline-flex; align-items:center; gap:5px;">
+                ⬇️ CSV
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer" style="margin-top: 16px; flex-shrink: 0;">
+      <button (click)="closeImportHistoryModal()" class="btn btn-outline" type="button">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- CSV Ingestion Metrics Summary Overlay Modal Card -->
+<div *ngIf="isCsvSummaryModalOpen" class="modal-overlay csv-summary-overlay" (click)="closeCsvSummaryModal()">
+  <div class="modal-card glass-panel csv-summary-modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <h3>CSV Ingestion & Deduplication Summary</h3>
+        <p class="modal-subtitle">Batch Processing & Pipeline Verification Metrics</p>
+      </div>
+      <button (click)="closeCsvSummaryModal()" class="close-btn" type="button" title="Close summary card">&times;</button>
+    </div>
+
+    <div class="csv-metrics-grid" *ngIf="csvSummaryData">
+      <div class="metric-card metric-total">
+        <span class="metric-label">Total CSV Rows</span>
+        <span class="metric-value">{{ csvSummaryData.totalRows }}</span>
+        <span class="metric-sub">{{ csvSummaryData.totalFiles }} File(s) Ingested</span>
+      </div>
+
+      <div class="metric-card metric-valid">
+        <span class="metric-label">Valid Profiles</span>
+        <span class="metric-value text-green">{{ csvSummaryData.validCount }}</span>
+        <span class="metric-sub">Passed Validation</span>
+      </div>
+
+      <div class="metric-card metric-new">
+        <span class="metric-label">New Profiles Created</span>
+        <span class="metric-value text-blue">{{ csvSummaryData.insertedCount }}</span>
+        <span class="metric-sub">Unique Insertions</span>
+      </div>
+
+      <div class="metric-card metric-merged">
+        <span class="metric-label">Duplicates Merged</span>
+        <span class="metric-value text-purple">{{ csvSummaryData.mergedCount }}</span>
+        <span class="metric-sub">Consolidated Profiles</span>
+      </div>
+
+      <div class="metric-card metric-rejected">
+        <span class="metric-label">Rejected / Invalid Rows</span>
+        <span class="metric-value text-red">{{ csvSummaryData.invalidCount }}</span>
+        <span class="metric-sub">Logged to Task 4 History</span>
+      </div>
+
+      <div class="metric-card metric-final">
+        <span class="metric-label">Final Directory Database</span>
+        <span class="metric-value text-cyan">{{ csvSummaryData.finalTotal }}</span>
+        <span class="metric-sub">Total Active Records</span>
+      </div>
+    </div>
+  </div>
+</div>

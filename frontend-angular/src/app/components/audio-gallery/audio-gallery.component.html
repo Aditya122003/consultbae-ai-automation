@@ -1,0 +1,164 @@
+<!-- Audio Submissions Catalog Template -->
+<!-- Renders searchable data table for all audio submissions with inline players and extracted signal metrics -->
+
+<div class="gallery-container glass-panel">
+  <!-- Gallery Header & Controls -->
+  <div class="gallery-header">
+    <div class="header-left">
+      <div class="header-icon">📂</div>
+      <div>
+        <div class="task-badge-pill">Task 3.2 Deliverable</div>
+        <h2>Audio Submissions Catalog</h2>
+        <p class="subtitle">Real-time table of candidate voice recordings with signal processing metrics from MySQL</p>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <span class="count-badge">{{ filteredSubmissions.length }} Submissions</span>
+      <button (click)="loadSubmissions()" class="btn btn-outline refresh-btn" type="button">
+        🔄 Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Quality Filter Toolbar -->
+  <div class="filter-toolbar">
+    <div class="search-input-wrapper">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="applyFilter()"
+        placeholder="Search by candidate name, phone number, or city..."
+        class="custom-input search-input"
+      />
+    </div>
+
+    <div class="filter-group">
+      <label for="qualitySelect">Quality Tier:</label>
+      <select
+        id="qualitySelect"
+        [(ngModel)]="selectedQuality"
+        (change)="applyFilter()"
+        class="custom-input select-input"
+      >
+        <option value="ALL">All Qualities</option>
+        <option value="Excellent">Excellent (90+ SNR)</option>
+        <option value="Good">Good (75-89 SNR)</option>
+        <option value="Fair">Fair (50-74 SNR)</option>
+        <option value="Noisy">Noisy / Low Quality</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading State Indicator -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Querying audio submissions from MySQL...</p>
+  </div>
+
+  <!-- Empty State Banner -->
+  <div *ngIf="!isLoading && filteredSubmissions.length === 0" class="empty-state">
+    <div class="empty-icon">🎙️</div>
+    <h3>No Audio Submissions Found</h3>
+    <p>No audio recordings match your search criteria. Record audio in Task 3.1 Studio to see it appear here!</p>
+  </div>
+
+  <!-- Submissions Table View -->
+  <div *ngIf="!isLoading && filteredSubmissions.length > 0" class="table-responsive">
+    <table class="custom-table bordered-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Candidate Name</th>
+          <th>Phone Number</th>
+          <th>City</th>
+          <th>Audio Playback</th>
+          <th>Quality & SNR</th>
+          <th>Acoustic Parameters</th>
+          <th>Recorded Date & Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of filteredSubmissions; let i = index">
+          <!-- Submission Sequence Index -->
+          <td class="id-cell">#{{ i + 1 }}</td>
+
+          <!-- Candidate Name -->
+          <td class="cand-name-cell">
+            <div class="cand-name">{{ item.worker_name }}</div>
+          </td>
+
+          <!-- Phone Number -->
+          <td class="phone-cell">
+            <span class="phone-badge">{{ item.worker_phone }}</span>
+          </td>
+
+          <!-- City / Location -->
+          <td class="city-cell">
+            <span class="city-pill" *ngIf="item.city">{{ item.city }}</span>
+            <span class="text-dim" *ngIf="!item.city">--</span>
+          </td>
+
+          <!-- Audio Player & Controls -->
+          <td class="player-cell">
+            <div class="player-wrapper">
+              <audio #audioElement [src]="getAudioUrl(item.audio_url)" controls class="table-audio-player"></audio>
+              <div class="speed-controls">
+                <span class="speed-label">Speed:</span>
+                <button (click)="changeSpeed(audioElement, 1.0)" class="speed-btn" [class.active-speed]="audioElement.playbackRate === 1.0">1x</button>
+                <button (click)="changeSpeed(audioElement, 1.25)" class="speed-btn" [class.active-speed]="audioElement.playbackRate === 1.25">1.25x</button>
+                <button (click)="changeSpeed(audioElement, 1.5)" class="speed-btn" [class.active-speed]="audioElement.playbackRate === 1.5">1.5x</button>
+              </div>
+            </div>
+          </td>
+
+          <!-- Quality Tier & SNR Score -->
+          <td class="quality-cell">
+            <span
+              class="badge"
+              [ngClass]="{
+                'badge-excellent': item.quality_label === 'Excellent',
+                'badge-good': item.quality_label === 'Good',
+                'badge-fair': item.quality_label === 'Fair',
+                'badge-noisy': item.quality_label.includes('Noisy')
+              }"
+            >
+              {{ item.quality_label }}
+            </span>
+            <div class="snr-score-val">
+              <strong>{{ item.snr_quality_score }}</strong> / 100 SNR
+            </div>
+          </td>
+
+          <!-- Acoustic Signal Properties -->
+          <td class="acoustic-cell">
+            <div class="metrics-grid">
+              <div class="metric-pill">
+                <span class="metric-label">Duration:</span>
+                <span class="metric-val">{{ item.duration_seconds }}s</span>
+              </div>
+              <div class="metric-pill">
+                <span class="metric-label">Rate:</span>
+                <span class="metric-val">{{ item.sample_rate_khz }} kHz</span>
+              </div>
+              <div class="metric-pill">
+                <span class="metric-label">Bitrate:</span>
+                <span class="metric-val">{{ item.bitrate_kbps }} kbps</span>
+              </div>
+              <div class="metric-pill">
+                <span class="metric-label">Loudness:</span>
+                <span class="metric-val">{{ item.loudness_db }} dB</span>
+              </div>
+            </div>
+          </td>
+
+          <!-- Formatted Date & Time -->
+          <td class="date-cell">
+            <span class="date-formatted">{{ formatDate(item.created_at) }}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
