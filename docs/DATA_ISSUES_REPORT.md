@@ -3,7 +3,19 @@
 ## Executive Summary
 During the ingestion, deduplication, and consolidation of ConsultBae's workforce datasets (**Source 1: Naukri Applicants**, **Source 2: Gig Workers**, **Source 3: CBNexus Contacts**, and **Source 4: Dynamic Candidate Batches**), multiple planted data quality anomalies, structural defects, format inconsistencies, and entity resolution conflicts were identified and systematically resolved.
 
-A total of **186 individual data quality issues** were cataloged and automatically corrected by our Python ETL pipeline (`pipeline/ingest_and_merge.py`), producing **53 deduplicated, high-fidelity candidate profiles** stored in MySQL (`consultbae_db.candidates`). Every cleaning action is tracked in real-time in the `data_cleaning_audit` MySQL table and exposed via dynamic API endpoints for interactive UI rendering and CSV export.
+Based on the live database state in MySQL (`consultbae_db`), a total of **53 audit category records tracking 186 individual row-level data quality remediation events** have been logged in `data_cleaning_audit`. The automated ETL pipeline (`pipeline/ingest_and_merge.py`) has successfully produced **65 deduplicated, high-fidelity candidate profiles** stored in `consultbae_db.candidates`. Every cleaning action is dynamically updated in MySQL and exposed via API endpoints for interactive UI rendering and CSV export.
+
+---
+
+## 📊 Live Database Audit Metrics Summary
+
+| Source Dataset | Primary File Name | Audit Issues Logged | Primary Anomaly Types |
+|---|---|---|---|
+| **Source 1** | `source1_naukri_applicants.csv` | **2 Audit Logs** | Abbreviated names, alternate email aliases, +91/0 phone prefixes, CTC unit conversions (LPA), 4 date formats. |
+| **Source 2** | `source2_gig_workers.csv` | **17 Audit Logs** | Empty delimiter rows, column misalignment (row 20), uppercase emails, rate unit splitting (/hr vs k/month), missing phone column. |
+| **Source 3** | `source3_cbnexus_contacts.csv` | **30 Audit Logs** | Embedded duplicate header (row 16), ALL CAPS names, country code phone prefixes, mixed boolean flags (Y/N/Yes), missing email column. |
+| **Source 4** | `source4_candidates.csv` | **4 Audit Logs** | Dynamic batch ingestion anomalies, missing fields, rate normalizations. |
+| **TOTAL** | **Live Database State** | **53 Audit Logs (186 Issues)** | **65 Unified Candidate Profiles** |
 
 ---
 
@@ -47,6 +59,15 @@ A total of **186 individual data quality issues** were cataloged and automatical
 
 ---
 
+### 4. Source 4: `source4_candidates.csv` (Dynamic Uploads)
+
+| Source | Issue Type | CSV Rows Affected | Raw Example | Root Cause & Impact | Automated Remediation & Solution |
+|---|---|---|---|---|---|
+| **Source 4** | **Missing Experience / CTC** | Rows 2, 4, 5 | `,,` | Dynamic batch candidate uploads lacking experience or current CTC metrics. | Ingestion pipeline provisions default null values (`0.00` experience, `0.00` CTC) and logs audit events. |
+| **Source 4** | **Unassigned Domain Skills** | Rows 3, 6 | `web development, python` | Skills entered without formal skill category assignment. | Pipeline automatically flags unassigned entries for n8n LLM categorization or defaults to `--` unassigned status. |
+
+---
+
 ## 🔀 Multi-Pass Entity Resolution Engine Architecture
 
 To solve cross-source fragmentation without a universal unique key, our pipeline (`pipeline/entity_matcher.py`) executes a **3-Pass Priority Entity Resolution Engine**:
@@ -54,31 +75,26 @@ To solve cross-source fragmentation without a universal unique key, our pipeline
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           Incoming Raw CSV Record                               │
-└────────────────────────────────────────┬────────────────────────────────────────┘
-                                         │
-                                         ▼
-                     [Pass 1: Normalized 10-Digit Phone Match]
-                                         │
-                      Found? ────────────┴──────────── Not Found?
-                     /                                           \
-                    ▼                                             ▼
-        [Merge into Existing Candidate]              [Pass 2: Lowercase Email Match]
-                                                                  │
-                                               Found? ────────────┴──────────── Not Found?
-                                              /                                           \
-                                             ▼                                             ▼
-                                 [Merge into Existing Candidate]          [Pass 3: Name + City & Initial Match]
-                                                                                           │
-                                                                       Found? ─────────────┴───────────── Not Found?
-                                                                      /                                             \
-                                                                     ▼                                               ▼
-                                                         [Merge into Existing Candidate]               [Provision New Candidate Profile]
+└────────────────────────────┬────────────────────────────────────────────────────┘
+                             │
+                             ▼
+         [Pass 1: Normalized 10-Digit Phone Match]
+                             │
+          Found? ────────────┴──────────── Not Found?
+         /                                           \
+        ▼                                             ▼
+[Merge into Existing Candidate]              [Pass 2: Lowercase Email Match]
+                                                      │
+                                   Found? ────────────┴──────────── Not Found?
+                                  /                                           \
+                                 ▼                                             ▼
+                     [Merge into Existing Candidate]          [Pass 3: Name + City & Initial Match]
+                                                                               │
+                                                           Found? ─────────────┴───────────── Not Found?
+                                                          /                                             \
+                                                         ▼                                               ▼
+                                             [Merge into Existing Candidate]               [Provision New Candidate Profile]
 ```
-
-### Ingestion Metrics Summary:
-- **Total Raw CSV Rows Processed**: 106 records across 3 core source datasets.
-- **Unified Canonical Candidates Produced**: **53 consolidated profiles**.
-- **Audit Remediation Events Logged**: **186 automated cleaning actions** stored in `data_cleaning_audit`.
 
 ---
 
